@@ -28,7 +28,7 @@ module.exports = {
     /**
      * Your server crypto keys!
      */
-    serverKeyFile: "default_key.pem",
+    serverKeyFile: path.join(path.dirname(require.main.filename),"default_key.pem"),
     serverKeyPassFile: null,
     serverKeyPassEnvVar: null,
 
