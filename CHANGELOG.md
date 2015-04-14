@@ -1,7 +1,7 @@
 Changelog
 =========
 
-- 0.1.6 - Move npm package to repository root level to make it referencable via github URL
+- 0.1.6 - Move npm package to repository root level to make it referencable via github URL, Make all server settings configurable
 - 0.1.5 - cleaning up connection key logging, adding early data patch
 - 0.1.4 - adding verbose logging option
 - 0.1.3 - adding OTA size workaround
