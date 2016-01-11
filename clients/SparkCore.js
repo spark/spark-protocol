@@ -357,7 +357,7 @@ SparkCore.prototype = extend(ISparkCore.prototype, EventEmitter.prototype, {
             msg._type = this.getResponseType(msg.getTokenString());
         }
 
-        //console.log("core got message of type " + msg._type + " with token " + msg.getTokenString() + " " + messages.getRequestType(msg));
+        console.log("core got message of type " + msg._type + " with token " + msg.getTokenString() + " " + messages.getRequestType(msg));
 
         if (msg.isAcknowledgement()) {
             if (!msg._type) {
@@ -378,7 +378,7 @@ SparkCore.prototype = extend(ISparkCore.prototype, EventEmitter.prototype, {
         if (msg.isEmpty() && msg.isConfirmable()) {
             this._lastCorePing = new Date();
             //var delta = (this._lastCorePing - this._connStartTime) / 1000.0;
-            //logger.log("core ping @ ", delta, " seconds ", { coreID: this.getHexCoreID() });
+            logger.log("core ping @ ", delta, " seconds ", { coreID: this.getHexCoreID() });
             this.sendReply("PingAck", msg.getId());
             return;
         }
@@ -392,7 +392,7 @@ SparkCore.prototype = extend(ISparkCore.prototype, EventEmitter.prototype, {
                 return;
             }
 
-            //this.sendMessage("Ignored", null, {}, null, null);
+            // this.sendMessage("Ignored", null, {}, null, null);
             this.disconnect("Bad Counter");
             return;
         }
@@ -420,7 +420,7 @@ SparkCore.prototype = extend(ISparkCore.prototype, EventEmitter.prototype, {
             return;
         }
         this.secureOut.write(msg, null, null);
-        //logger.log("Replied with message of type: ", name, " containing ", data);
+        logger.log("Replied with message of type: ", name, " containing ", data);
     },
 
 
@@ -442,8 +442,8 @@ SparkCore.prototype = extend(ISparkCore.prototype, EventEmitter.prototype, {
             return;
         }
         this.secureOut.write(msg, null, null);
-//        logger.log("Sent message of type: ", name, " containing ", data,
-//            "BYTES: " + msg.toString('hex'));
+        logger.log("Sent message of type: ", name, " containing ", data,
+           "BYTES: " + msg.toString('hex'));
 
         return token;
     },

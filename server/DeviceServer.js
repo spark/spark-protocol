@@ -32,7 +32,9 @@ var fs = require('fs');
 var DeviceServer = function (options) {
     this.options = options;
     this.options = options || {};
-    settings.coreKeysDir = this.options.coreKeysDir = this.options.coreKeysDir || settings.coreKeysDir;
+    for (property in settings) {
+        settings[property] = this.options[property] = this.options[property] || settings[property];
+    }
 
     this._allCoresByID = {};
     this._attribsByID = {};
