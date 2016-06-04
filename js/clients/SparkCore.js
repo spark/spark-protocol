@@ -94,6 +94,7 @@ SparkCore.prototype = extend(ISparkCore.prototype, EventEmitter.prototype, {
 
     spark_product_id: null,
     product_firmware_version: null,
+    platform_id: null,
 
     /**
      * Used to track calls waiting on a description response
@@ -136,6 +137,7 @@ SparkCore.prototype = extend(ISparkCore.prototype, EventEmitter.prototype, {
             ip: this.getRemoteIPAddress(),
             product_id: this.spark_product_id,
             firmware_version: this.product_firmware_version,
+            platform_id: this.platform_id,
             cache_key: this._connection_key
         });
 
@@ -1052,10 +1054,13 @@ SparkCore.prototype = extend(ISparkCore.prototype, EventEmitter.prototype, {
 
             if (!global.publisher.publish(isPublic, obj.name, obj.userid, obj.data, obj.ttl, obj.published_at, this.getHexCoreID())) {
                 //this core is over its limit, and that message was not sent.
-                this.sendReply("EventSlowdown", msg.getId());
+                //this.sendReply("EventSlowdown", msg.getId());
             }
-            else {
-                this.sendReply("EventAck", msg.getId());
+            if(msg.isConfirmable()) {
+                console.log('Event confirmable');
+                this.sendReply( "EventAck", msg.getId() );
+            }else{
+                console.log('Event non confirmable');
             }
         }
         catch (ex) {
@@ -1108,6 +1113,7 @@ SparkCore.prototype = extend(ISparkCore.prototype, EventEmitter.prototype, {
 
         //modify our filter on the appropriate socket (create the socket if we haven't yet) to let messages through
         //this.eventsSocket.subscribe(isPublic, name, userid);
+        global.publisher.subscribe( name, userid,deviceID,this,this.onCoreEvent);
     },
 
     onCorePubHeard: function (name, data, ttl, published_at, coreid) {
@@ -1115,6 +1121,10 @@ SparkCore.prototype = extend(ISparkCore.prototype, EventEmitter.prototype, {
     },
     onCorePrivHeard: function (name, data, ttl, published_at, coreid) {
         this.sendCoreEvent(false, name, data, ttl, published_at, coreid);
+    },
+    // isPublic, name, userid, data, ttl, published_at, coreid);
+    onCoreEvent:function( isPublic, name, userid, data, ttl, published_at, coreid){
+        this.sendCoreEvent(isPublic, name, data, ttl, published_at, coreid);
     },
 
     /**

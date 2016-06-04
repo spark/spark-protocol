@@ -531,7 +531,7 @@ Handshake.prototype = extend(IHandshake.prototype, {
                     var r = new buffers.BufferReader(payload);
                     this.client.spark_product_id = r.shiftUInt16();
                     this.client.product_firmware_version = r.shiftUInt16();
-                    //logger.log('version of core firmware is ', this.client.spark_product_id, this.client.product_firmware_version);
+                    this.client.platform_id = r.shiftUInt16();
                 }
             }
             else {

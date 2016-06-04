@@ -27,33 +27,84 @@ var EventPublisher = function () {
     EventEmitter.call(this);
 };
 EventPublisher.prototype = {
-
+    getEventKey: function(name,userid,coreid){
+        var ret = userid;
+        if(coreid){
+            ret+='_'+coreid;
+        }
+        if(name){
+            ret +='_'+name;
+        }
+        return ret;
+    },
+    getEventName:function(name,coreid){
+        var eventName="";
+        if(coreid){
+            eventName=coreid;
+            if(name && (name!="")){
+                eventName+='/'+name;
+            }
+        }else if(name && (name!="")){
+            eventName=name;
+        }
+        if (!eventName || (eventName == "")) {
+            return "*all*";
+        }
+        return eventName;
+    },
     publish: function (isPublic, name, userid, data, ttl, published_at, coreid) {
 
         process.nextTick((function () {
-            this.emit(name, isPublic, name, userid, data, ttl, published_at, coreid);
-            this.emit("*all*", isPublic, name, userid, data, ttl, published_at, coreid);
+            if (typeof(this.emit) == 'function')
+            {
+                this.emit( name, isPublic, name, userid, data, ttl, published_at, coreid );
+                this.emit( coreid, isPublic, name, userid, data, ttl, published_at, coreid );
+                this.emit( coreid + '/' + name, isPublic, name, userid, data, ttl, published_at, coreid );
+                this.emit( "*all*", isPublic, name, userid, data, ttl, published_at, coreid );
+            }
         }).bind(this));
     },
-    subscribe: function (eventName, obj) {
-        if (!eventName || (eventName == "")) {
-            eventName = "*all*";
+    subscribe: function (name,userid,coreid, obj,objHandler) {
+        var key=this.getEventKey(name,userid,coreid ),
+          eventName;
+        //coreid/name
+        //coreid
+        //name
+        if(!obj[key + "_handler"]) {
+            eventName=this.getEventName(name,coreid);
+            var handler;
+            if(objHandler){
+                handler = objHandler.bind(obj);
+            }else {
+                handler = (function ( isPublic,
+                                          name,
+                                          userid,
+                                          data,
+                                          ttl,
+                                          published_at,
+                                          coreid
+                ) {
+                    var emitName = (isPublic) ? "public" : "private";
+                    if (typeof(this.emit) == 'function') {
+                        this.emit( emitName, name, data, ttl, published_at, coreid );
+                    }
+                }).bind( obj );
+            }
+            obj[key + "_handler"] = handler;
+
+            this.on( eventName, handler );
         }
-
-        var handler = (function (isPublic, name, userid, data, ttl, published_at, coreid) {
-            var emitName = (isPublic) ? "public" : "private";
-            this.emit(emitName, name, data, ttl, published_at, coreid);
-        }).bind(obj);
-        obj[eventName + "_handler"] = handler;
-
-        this.on(eventName, handler);
     },
 
-    unsubscribe: function (eventName, obj) {
-        var handler = obj[eventName + "_handler"];
-        if (handler) {
-            delete obj[eventName + "_handler"];
-            this.removeListener(eventName, handler);
+    unsubscribe: function (name,userid,coreid, obj) {
+        var key = this.getEventKey(name,userid,coreid);
+        if(key) {
+            var handler = obj[key + "_handler"];
+            if ( handler ) {
+                var eventName = this.getEventName(name,coreid);
+                delete obj[eventName + "_handler"];
+                this.removeListener( eventName, handler );
+            }
         }
     },
 
