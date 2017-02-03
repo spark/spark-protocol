@@ -28,10 +28,11 @@ var path = require('path');
 var net = require('net');
 var fs = require('fs');
 
-
 var DeviceServer = function (options) {
-    this.options = options;
     this.options = options || {};
+    this.options.polluteGlobal = this.options.polluteGlobal === undefined ? true : this.options.polluteGlobal;
+    this.options.logMessages = this.options.logMessages === undefined ? false : this.options.logMessages;
+
     settings.coreKeysDir = this.options.coreKeysDir = this.options.coreKeysDir || settings.coreKeysDir;
 
     this._allCoresByID = {};
@@ -181,99 +182,113 @@ DeviceServer.prototype = {
 
 
     start: function () {
-        global.settings = settings;
+        if(this.options.polluteGlobal)
+            global.settings = settings;
 
-        //
-        //  Create our basic socket handler
-        //
+        return when.promise(function(resolve, reject) {
 
-        var that = this,
-            connId = 0,
-            _cores = {},
-            server = net.createServer(function (socket) {
-                process.nextTick(function () {
-                    try {
-                        var key = "_" + connId++;
-                        logger.log("Connection from: " + socket.remoteAddress + ", connId: " + connId);
+            //
+            //  Create our basic socket handler
+            //
 
-                        var core = new SparkCore();
-                        core.socket = socket;
-                        core.startupProtocol();
-                        core._connection_key = key;
+            var that = this,
+                connId = 0,
+                _cores = {},
+                server = net.createServer(function (socket) {
+                    process.nextTick(function () {
+                        try {
+                            var key = "_" + connId++;
+                            if(that.options.logMessages)
+                                logger.log("Connection from: " + socket.remoteAddress + ", connId: " + connId);
 
-                        //TODO: expose to API
+                            var core = new SparkCore();
+                            core.publisher = that.publisher;
+                            core.socket = socket;
+                            core.startupProtocol();
+                            core._connection_key = key;
 
+                            //TODO: expose to API
 
-                        _cores[key] = core;
-                        core.on('ready', function () {
-                            logger.log("Core online!");
-                            var coreid = this.getHexCoreID();
-                            that._allCoresByID[coreid] = core;
-                            that._attribsByID[coreid] = that._attribsByID[coreid] || {
-                                coreID: coreid,
-                                name: null,
-                                ip: this.getRemoteIPAddress(),
-                                product_id: this.spark_product_id,
-                                firmware_version: this.product_firmware_version
-                            };
-                        });
-                        core.on('disconnect', function (msg) {
-                            logger.log("Session ended for " + core._connection_key);
-                            delete _cores[key];
-                        });
-                    }
-                    catch (ex) {
-                        logger.error("core startup failed " + ex);
-                    }
+                            _cores[key] = core;
+                            core.on('ready', function () {
+                                if(that.options.logMessages)
+                                    logger.log("Core online!");
+                                var coreid = this.getHexCoreID();
+                                that._allCoresByID[coreid] = core;
+                                that._attribsByID[coreid] = that._attribsByID[coreid] || {
+                                    coreID: coreid,
+                                    name: null,
+                                    ip: this.getRemoteIPAddress(),
+                                    product_id: this.spark_product_id,
+                                    firmware_version: this.product_firmware_version
+                                };
+                            });
+                            core.on('disconnect', function (msg) {
+                                if(that.options.logMessages)
+                                    logger.log("Session ended for " + core._connection_key);
+                                delete _cores[key];
+                            });
+                        }
+                        catch (ex) {
+                              logger.error("core startup failed " + ex);
+                            reject(ex);
+                        }
+                    });
                 });
+
+            this.cores = _cores;
+            if(this.options.polluteGlobal)
+                global.cores = this.cores;
+
+            this.publisher = new EventPublisher();
+            if(this.options.polluteGlobal)
+                global.publisher = this.publisher;
+
+            server.on('error', function () {
+                logger.error("something blew up ", arguments);
+                reject(new Error("something blew up " + arguments));
             });
 
-        global.cores = _cores;
-        global.publisher = new EventPublisher();
 
-        server.on('error', function () {
-            logger.error("something blew up ", arguments);
-        });
-
-
-        //
-        //  Load the provided key, or generate one
-        //
-        if (!fs.existsSync(settings.serverKeyFile)) {
-            console.warn("Creating NEW server key");
-            var keys = ursa.generatePrivateKey();
+            //
+            //  Load the provided key, or generate one
+            //
+            if (!fs.existsSync(settings.serverKeyFile)) {
+                console.warn("Creating NEW server key");
+                var keys = ursa.generatePrivateKey();
 
 
-            var extIdx = settings.serverKeyFile.lastIndexOf(".");
-            var derFilename = settings.serverKeyFile.substring(0, extIdx) + ".der";
-            var pubPemFilename = settings.serverKeyFile.substring(0, extIdx) + ".pub.pem";
+                var extIdx = settings.serverKeyFile.lastIndexOf(".");
+                var derFilename = settings.serverKeyFile.substring(0, extIdx) + ".der";
+                var pubPemFilename = settings.serverKeyFile.substring(0, extIdx) + ".pub.pem";
 
-            fs.writeFileSync(settings.serverKeyFile, keys.toPrivatePem('binary'));
-            fs.writeFileSync(pubPemFilename, keys.toPublicPem('binary'));
+                fs.writeFileSync(settings.serverKeyFile, keys.toPrivatePem('binary'));
+                fs.writeFileSync(pubPemFilename, keys.toPublicPem('binary'));
 
-            //DER FORMATTED KEY for the core hardware
-            //TODO: fs.writeFileSync(derFilename, keys.toPrivatePem('binary'));
-        }
-
-
-        //
-        //  Load our server key
-        //
-        console.info("Loading server key from " + settings.serverKeyFile);
-        CryptoLib.loadServerKeys(
-            settings.serverKeyFile,
-            settings.serverKeyPassFile,
-            settings.serverKeyPassEnvVar
-        );
-
-        //
-        //  Wait for the keys to be ready, then start accepting connections
-        //
-        server.listen(settings.PORT, function () {
-            logger.log("server started", { host: settings.HOST, port: settings.PORT });
-        });
+                //DER FORMATTED KEY for the core hardware
+                //TODO: fs.writeFileSync(derFilename, keys.toPrivatePem('binary'));
+            }
 
 
+            //
+            //  Load our server key
+            //
+            console.info("Loading server key from " + settings.serverKeyFile);
+            CryptoLib.loadServerKeys(
+                settings.serverKeyFile,
+                settings.serverKeyPassFile,
+                settings.serverKeyPassEnvVar
+            );
+
+            //
+            //  Wait for the keys to be ready, then start accepting connections
+            //
+            server.listen(settings.PORT, function () {
+                if(that.options.logMessages)
+                    logger.log("server started", { host: settings.HOST, port: settings.PORT });
+                resolve();
+            });
+        }.bind(this));
     }
 
 };

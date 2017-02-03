@@ -1046,11 +1046,11 @@ SparkCore.prototype = extend(ISparkCore.prototype, EventEmitter.prototype, {
 
 
         try {
-            if (!global.publisher) {
+            if (!this.publisher) {
                 return;
             }
 
-            if (!global.publisher.publish(isPublic, obj.name, obj.userid, obj.data, obj.ttl, obj.published_at, this.getHexCoreID())) {
+            if (!this.publisher.publish(isPublic, obj.name, obj.userid, obj.data, obj.ttl, obj.published_at, this.getHexCoreID())) {
                 //this core is over its limit, and that message was not sent.
                 this.sendReply("EventSlowdown", msg.getId());
             }
