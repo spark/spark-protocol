@@ -38,7 +38,8 @@ CryptoStream.prototype._transform = function (chunk, encoding, callback) {
         // PATCH from arondn2 to solve error: "CryptoStream transform error
         // TypeError: Cannot read property 'length' of null" and "CryptoStream
         // transform error Error: error:06065064:digital envelope
-        // routines:EVP_DecryptFinal_ex:bad decrypt"
+        // routines:EVP_DecryptFinal_ex:bad decrypt" when run with node version
+        // v6.9.2
         try {
           cipher.end();
         } catch(e) {}
