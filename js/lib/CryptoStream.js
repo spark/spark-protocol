@@ -34,7 +34,16 @@ CryptoStream.prototype._transform = function (chunk, encoding, callback) {
         //assuming it comes in full size pieces
         var cipher = this.getCipher(callback);
         cipher.write(chunk);
-        cipher.end();
+
+        // PATCH from arondn2 to solve error: "CryptoStream transform error
+        // TypeError: Cannot read property 'length' of null" and "CryptoStream
+        // transform error Error: error:06065064:digital envelope
+        // routines:EVP_DecryptFinal_ex:bad decrypt"
+        try {
+          cipher.end();
+        } catch(e) {}
+        // END PATCH
+        
         cipher = null;
 
         if (!this.encrypt) {
